@@ -83,24 +83,47 @@ jobs:
             xsltproc \
             zlib1g-dev
 
-      - name: Verify toolchain and available space
+      - name: Install Broadcom toolchain host libs
         env:
           AM_TOOLCHAINS_ROOT: ${{ github.workspace }}/am-toolchains
         run: |
-          df -h
-          TC_LIB="$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib"
-          export LD_LIBRARY_PATH="$TC_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-          ls -la "$TC_LIB"/libmpc.so* "$TC_LIB"/libmpfr.so* "$TC_LIB"/libgmp.so* || true
-          file "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc"
-          ldd "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
-          "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc" --version
+          set -eux
+          TC_ROOT="$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3"
+          TC_LIB="$TC_ROOT/lib"
+          DEST=/usr/lib/i386-linux-gnu
+          mkdir -p "$DEST"
+          # GCC 4.5.3 cc1 is 32-bit and needs these SONAMEs from the SDK tree.
+          for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10 libgmpxx.so.4; do
+            src="$(readlink -f "$TC_LIB/$so" 2>/dev/null || true)"
+            if [[ -z "$src" || ! -e "$src" ]]; then
+              src="$(ls -1 "$TC_LIB"/${so}* 2>/dev/null | head -n1 || true)"
+            fi
+            if [[ -n "$src" && -e "$src" ]]; then
+              cp -a "$src" "$DEST/"
+              base="$(basename "$src")"
+              ln -sfn "$base" "$DEST/$so"
+              echo "Installed $so -> $DEST/$base"
+            else
+              echo "WARNING: missing $so under $TC_LIB" >&2
+            fi
+          done
+          # Also expose via ld.so cache for make/subshells that drop LD_LIBRARY_PATH.
+          echo "$DEST" > /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
+          echo "$TC_LIB" >> /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
+          ldconfig
+          export LD_LIBRARY_PATH="$TC_LIB:$DEST${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          file "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc"
+          ldd "$TC_ROOT/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
+          "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" --version
           echo 'int main(void){return 0;}' > /tmp/t.c
-          "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc" -c /tmp/t.c -o /tmp/t.o
+          "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" -c /tmp/t.c -o /tmp/t.o
           ls -la /tmp/t.o
+          df -h
 
       - name: Build firmware
         env:
           AM_TOOLCHAINS_ROOT: ${{ github.workspace }}/am-toolchains
+          LD_LIBRARY_PATH: ${{ github.workspace }}/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib:/usr/lib/i386-linux-gnu
         run: bash tools/build-rt-ac88u-ci.sh
 
       - name: Upload firmware
