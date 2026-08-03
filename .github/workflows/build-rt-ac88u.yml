@@ -81,22 +81,39 @@ jobs:
             wget \
             xsltproc \
             zlib1g-dev
+          git --version
 
-      # Shallow single-branch checkout + sparse tree (not a mirror).
-      # Repo tip is multi-GB; RT-AC88U only needs SDK7 + shared router sources.
+      # Container jobs: actions/checkout runs on host and often cannot see
+      # container git → falls back to REST zip of ENTIRE monorepo (multi-GB).
+      # Sparse git clone inside container after bootstrap installs git.
       - name: Check out firmware sources
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.ref }}
-          fetch-depth: 1
-          show-progress: false
-          sparse-checkout: |
-            .github
-            tools
-            release/src-rt
-            release/src-rt-7.14.114.x
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          WS="${GITHUB_WORKSPACE:-$(pwd)}"
+          cd "$WS"
+          rm -rf .git release tools .github 2>/dev/null || true
+          # Keep am-toolchains if cache restore already put it here later; nothing yet.
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          REF="${GITHUB_SHA}"
+          git init
+          git remote add origin "$REPO_URL"
+          git config --local gc.auto 0
+          git config --global --add safe.directory "$WS"
+          git sparse-checkout init --cone
+          git sparse-checkout set \
+            .github \
+            tools \
+            release/src-rt \
+            release/src-rt-7.14.114.x \
             release/src
-          sparse-checkout-cone-mode: true
+          git fetch --depth=1 --filter=blob:none origin "$REF"
+          git checkout --force FETCH_HEAD
+          git rev-parse --short HEAD
+          du -sh . release tools 2>/dev/null || true
+          test -f tools/build-rt-ac88u-ci.sh
+          test -d release/src-rt-7.14.114.x/src
 
       - name: Restore am-toolchains cache
         id: cache-toolchains
@@ -109,16 +126,25 @@ jobs:
 
       - name: Check out official Merlin toolchains
         if: steps.cache-toolchains.outputs.cache-hit != 'true'
-        uses: actions/checkout@v5
-        with:
-          repository: RMerl/am-toolchains
-          ref: master
-          path: am-toolchains
-          fetch-depth: 1
-          show-progress: false
-          sparse-checkout: |
-            brcm-arm-sdk
-          sparse-checkout-cone-mode: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          WS="${GITHUB_WORKSPACE:-$(pwd)}"
+          DEST="$WS/am-toolchains"
+          rm -rf "$DEST"
+          mkdir -p "$DEST"
+          cd "$DEST"
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/RMerl/am-toolchains.git"
+          git init
+          git remote add origin "$REPO_URL"
+          git config --local gc.auto 0
+          git sparse-checkout init --cone
+          git sparse-checkout set brcm-arm-sdk
+          git fetch --depth=1 --filter=blob:none origin master
+          git checkout --force FETCH_HEAD
+          test -d brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3
+          du -sh "$DEST" brcm-arm-sdk 2>/dev/null || true
 
       - name: Install Broadcom toolchain host libs
         run: |
