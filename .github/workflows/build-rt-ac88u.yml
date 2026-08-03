@@ -94,13 +94,13 @@ jobs:
           WS="${GITHUB_WORKSPACE:-$(pwd)}"
           cd "$WS"
           rm -rf .git release tools .github 2>/dev/null || true
-          # Keep am-toolchains if cache restore already put it here later; nothing yet.
           REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           REF="${GITHUB_SHA}"
-          git init
-          git remote add origin "$REPO_URL"
-          git config --local gc.auto 0
           git config --global --add safe.directory "$WS"
+          git config --global --add safe.directory "*"
+          git init
+          git config --local gc.auto 0
+          git remote add origin "$REPO_URL"
           git sparse-checkout init --cone
           git sparse-checkout set \
             .github \
@@ -136,9 +136,11 @@ jobs:
           mkdir -p "$DEST"
           cd "$DEST"
           REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/RMerl/am-toolchains.git"
+          git config --global --add safe.directory "$DEST"
+          git config --global --add safe.directory "*"
           git init
-          git remote add origin "$REPO_URL"
           git config --local gc.auto 0
+          git remote add origin "$REPO_URL"
           git sparse-checkout init --cone
           git sparse-checkout set brcm-arm-sdk
           git fetch --depth=1 --filter=blob:none origin master
