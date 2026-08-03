@@ -65,11 +65,7 @@ jobs:
             lib32z1 \
             libelf1:i386 \
             libglib2.0-dev \
-            libgmp-dev \
-            libgmp3-dev \
             liblzo2-dev \
-            libmpc-dev \
-            libmpfr-dev \
             libncurses5-dev \
             libtool \
             libtool-bin \
@@ -86,19 +82,21 @@ jobs:
             wget \
             xsltproc \
             zlib1g-dev
-          # Broadcom GCC 4.5.3 is linked against libmpc.so.2; Ubuntu 20.04 ships .so.3
-          MPC_SO3="$(ldconfig -p | awk '/libmpc\.so\.3/ {print $NF; exit}')"
-          if [[ -n "$MPC_SO3" && ! -e /usr/lib/x86_64-linux-gnu/libmpc.so.2 ]]; then
-            ln -sf "$MPC_SO3" /usr/lib/x86_64-linux-gnu/libmpc.so.2
-          fi
-          ldconfig
 
       - name: Verify toolchain and available space
+        env:
+          AM_TOOLCHAINS_ROOT: ${{ github.workspace }}/am-toolchains
         run: |
           df -h
-          file am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc
-          ldd am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/../libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1 || true
-          am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc --version
+          TC_LIB="$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib"
+          export LD_LIBRARY_PATH="$TC_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          ls -la "$TC_LIB"/libmpc.so* "$TC_LIB"/libmpfr.so* "$TC_LIB"/libgmp.so* || true
+          file "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc"
+          ldd "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
+          "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc" --version
+          echo 'int main(void){return 0;}' > /tmp/t.c
+          "$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc" -c /tmp/t.c -o /tmp/t.o
+          ls -la /tmp/t.o
 
       - name: Build firmware
         env:
