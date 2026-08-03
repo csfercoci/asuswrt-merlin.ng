@@ -179,7 +179,7 @@ jobs:
           done
           printf '%s\n' "$DEST" "$TC_LIB" > /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
           ldconfig
-          export LD_LIBRARY_PATH="$TC_LIB:$DEST${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export LD_LIBRARY_PATH="$TC_LIB"
           test -d "$WS/.git"
           git config --global --add safe.directory "$WS"
           git -C "$WS" rev-parse --short HEAD
@@ -197,7 +197,7 @@ jobs:
       - name: Build firmware
         run: |
           export AM_TOOLCHAINS_ROOT="$(pwd)/am-toolchains"
-          export LD_LIBRARY_PATH="$(pwd)/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib:/usr/lib/i386-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export LD_LIBRARY_PATH="$(pwd)/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib"
           git config --global --add safe.directory "$(pwd)"
           bash tools/build-rt-ac88u-ci.sh
 

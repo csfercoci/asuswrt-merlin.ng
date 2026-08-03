@@ -32,7 +32,11 @@ fi
 
 # Prefer system host tools (autoreconf/autoconf/...) over broken SDK copies.
 export PATH="/usr/bin:/bin:$compiler_dir:$PATH"
-export LD_LIBRARY_PATH="$toolchain_lib:/usr/lib/i386-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# Single-entry only. samba-3.5.8 configure does
+#   PTHREAD_LDFLAGS="$LD_LIBRARY_PATH/../arm-brcm-.../libpthread.a"
+# Multi-path LD_LIBRARY_PATH breaks that string concat. Host i386 libs
+# for the cross cc1 are installed via ldconfig in the workflow.
+export LD_LIBRARY_PATH="$toolchain_lib"
 export AUTOCONF="${AUTOCONF:-/usr/bin/autoconf}"
 export AUTOM4TE="${AUTOM4TE:-/usr/bin/autom4te}"
 export AUTOHEADER="${AUTOHEADER:-/usr/bin/autoheader}"
@@ -77,7 +81,7 @@ if [[ -n "$automake_libdir" && -d "$automake_libdir" ]]; then
 fi
 
 make -C "$build_dir" \
-  LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
+  LD_LIBRARY_PATH="$toolchain_lib" \
   PATH="$PATH" \
   AUTOCONF="$AUTOCONF" \
   AUTOM4TE="$AUTOM4TE" \
