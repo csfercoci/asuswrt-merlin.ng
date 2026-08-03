@@ -6256,7 +6256,7 @@ openvpn-install:
 	fi
 
 sdparm-1.02: sdparm-1.02/Makefile
-	$(MAKE) -C $@
+	$(MAKE) -C $@ AUTOMAKE=true ACLOCAL=true AUTOCONF=true AUTOHEADER=true
 
 sdparm-1.02/Makefile: sdparm-1.02/configure
 	# Host automake/autoconf are newer than the 1.10/2.61 files shipped with
@@ -9760,4 +9760,3 @@ $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 .PHONY: all clean distclean mrproper install package image
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
 .PHONY: dummy libnet libpcap
-
