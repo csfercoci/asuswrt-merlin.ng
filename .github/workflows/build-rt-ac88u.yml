@@ -12,10 +12,14 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 defaults:
   run:
     shell: bash
+
+env:
+  AM_TOOLCHAINS_SHA: d1af80e6b668
 
 jobs:
   firmware:
@@ -27,6 +31,7 @@ jobs:
     steps:
       - name: Bootstrap container packages
         run: |
+          set -euxo pipefail
           dpkg --add-architecture i386
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -82,12 +87,25 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Restore am-toolchains cache
+        id: cache-toolchains
+        uses: actions/cache@v4
+        with:
+          path: am-toolchains
+          key: am-toolchains-brcm-arm-sdk-${{ env.AM_TOOLCHAINS_SHA }}
+          restore-keys: |
+            am-toolchains-brcm-arm-sdk-
+
       - name: Check out official Merlin toolchains
+        if: steps.cache-toolchains.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: RMerl/am-toolchains
           path: am-toolchains
           fetch-depth: 1
+          sparse-checkout: |
+            brcm-arm-sdk
+          sparse-checkout-cone-mode: true
 
       - name: Install Broadcom toolchain host libs
         run: |
@@ -96,6 +114,7 @@ jobs:
           TC_ROOT="$WS/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3"
           TC_LIB="$TC_ROOT/lib"
           DEST=/usr/lib/i386-linux-gnu
+          test -d "$TC_ROOT"
           mkdir -p "$DEST"
           for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10; do
             if [[ -e "$TC_LIB/$so" ]]; then
