@@ -53,6 +53,29 @@ echo "autoreconf: $(command -v autoreconf) ($(autoreconf --version | head -n1))"
 arm-brcm-linux-uclibcgnueabi-gcc --version
 ldd "$sdk_root/hndtools-arm-linux-2.6.36-uclibc-4.5.3/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
 
+# Old GPL packages (e.g. sdparm-1.02) re-run host automake and expect
+# aux scripts modern automake ships. Tree often only has install-sh/depcomp.
+automake_libdir="$(automake --print-libdir 2>/dev/null || true)"
+if [[ -n "$automake_libdir" && -d "$automake_libdir" ]]; then
+  echo "Seeding automake aux files from $automake_libdir"
+  while IFS= read -r conf; do
+    d="$(dirname "$conf")"
+    for aux in compile missing install-sh depcomp config.guess config.sub ar-lib test-driver; do
+      if [[ ! -e "$d/$aux" && -f "$automake_libdir/$aux" ]]; then
+        cp -a "$automake_libdir/$aux" "$d/$aux"
+        echo "  + $d/$aux"
+      fi
+    done
+    # Keep shipped Makefile.in/configure newer than inputs so make does not
+    # force a full autotools regen with mismatched host automake.
+    for gen in Makefile.in configure aclocal.m4 config.h.in; do
+      if [[ -f "$d/$gen" ]]; then
+        touch "$d/$gen"
+      fi
+    done
+  done < <(find "$repo_root/release/src/router" -maxdepth 3 \( -name configure.ac -o -name configure.in \) -type f | sort)
+fi
+
 make -C "$build_dir" \
   LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
   PATH="$PATH" \
