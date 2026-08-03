@@ -6259,16 +6259,29 @@ sdparm-1.02: sdparm-1.02/Makefile
 	$(MAKE) -C $@
 
 sdparm-1.02/Makefile: sdparm-1.02/configure
+	# Host automake/autoconf are newer than the 1.10/2.61 files shipped with
+	# sdparm-1.02. Freeze generated files (same pattern as wget) and supply
+	# any missing automake aux scripts so make never re-runs autogen.
 	cd sdparm-1.02 && \
+	for aux in compile missing install-sh depcomp config.guess config.sub; do \
+		if [ ! -e "$$aux" ]; then \
+			libdir=`automake --print-libdir 2>/dev/null || true`; \
+			if [ -n "$$libdir" ] && [ -f "$$libdir/$$aux" ]; then cp -a "$$libdir/$$aux" "$$aux"; fi; \
+		fi; \
+	done && \
+	touch aclocal.m4 configure config.h.in Makefile.in src/Makefile.in && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="$(EXTRALDFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	AUTOMAKE=true ACLOCAL=true AUTOCONF=true AUTOHEADER=true \
 	$(CONFIGURE) \
 		--prefix=/usr \
 		--bindir=/usr/bin \
 		--libdir=/usr/lib
 
 sdparm-1.02/configure:
-	cd sdparm-1.02 && ./autogen.sh
+	@# Prefer the shipped configure; only regenerate if truly missing.
+	@if [ ! -f sdparm-1.02/configure ]; then cd sdparm-1.02 && ./autogen.sh; fi
+	@touch sdparm-1.02/configure
 
 sdparm-1.02-install: sdparm-1.02
 	@[ ! -d sdparm-1.02 ] || install -D sdparm-1.02/src/sdparm $(INSTALLDIR)/sdparm-1.02/usr/bin/sdparm
@@ -9747,5 +9760,4 @@ $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 .PHONY: all clean distclean mrproper install package image
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
 .PHONY: dummy libnet libpcap
-
 
