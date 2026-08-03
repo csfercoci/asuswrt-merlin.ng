@@ -42,24 +42,34 @@ jobs:
             automake \
             autopoint \
             autogen \
+            bc \
             bison \
+            bzip2 \
             build-essential \
             cmake \
+            cpio \
             device-tree-compiler \
             dos2unix \
+            file \
             flex \
             gawk \
             gengetopt \
             gettext \
+            git \
             gperf \
             intltool \
+            kmod \
             libc6-i386 \
             libc6-dev-i386 \
             lib32stdc++6 \
             lib32z1 \
             libelf1:i386 \
             libglib2.0-dev \
+            libgmp-dev \
+            libgmp3-dev \
             liblzo2-dev \
+            libmpc-dev \
+            libmpfr-dev \
             libncurses5-dev \
             libtool \
             libtool-bin \
@@ -73,13 +83,22 @@ jobs:
             texinfo \
             u-boot-tools \
             uuid-dev \
+            wget \
             xsltproc \
             zlib1g-dev
+          # Broadcom GCC 4.5.3 is linked against libmpc.so.2; Ubuntu 20.04 ships .so.3
+          MPC_SO3="$(ldconfig -p | awk '/libmpc\.so\.3/ {print $NF; exit}')"
+          if [[ -n "$MPC_SO3" && ! -e /usr/lib/x86_64-linux-gnu/libmpc.so.2 ]]; then
+            ln -sf "$MPC_SO3" /usr/lib/x86_64-linux-gnu/libmpc.so.2
+          fi
+          ldconfig
 
       - name: Verify toolchain and available space
         run: |
           df -h
           file am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc
+          ldd am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/../libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1 || true
+          am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc --version
 
       - name: Build firmware
         env:
