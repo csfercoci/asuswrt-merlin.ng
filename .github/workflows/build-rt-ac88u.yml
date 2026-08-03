@@ -82,10 +82,21 @@ jobs:
             xsltproc \
             zlib1g-dev
 
+      # Shallow single-branch checkout + sparse tree (not a mirror).
+      # Repo tip is multi-GB; RT-AC88U only needs SDK7 + shared router sources.
       - name: Check out firmware sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 1
+          show-progress: false
+          sparse-checkout: |
+            .github
+            tools
+            release/src-rt
+            release/src-rt-7.14.114.x
+            release/src
+          sparse-checkout-cone-mode: true
 
       - name: Restore am-toolchains cache
         id: cache-toolchains
@@ -98,11 +109,13 @@ jobs:
 
       - name: Check out official Merlin toolchains
         if: steps.cache-toolchains.outputs.cache-hit != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: RMerl/am-toolchains
+          ref: master
           path: am-toolchains
           fetch-depth: 1
+          show-progress: false
           sparse-checkout: |
             brcm-arm-sdk
           sparse-checkout-cone-mode: true
@@ -149,6 +162,7 @@ jobs:
           "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" -c /tmp/t.c -o /tmp/t.o
           ls -la /tmp/t.o
           df -h
+          du -sh am-toolchains release 2>/dev/null || true
 
       - name: Build firmware
         run: |
