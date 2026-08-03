@@ -4420,12 +4420,22 @@ accel-pptp/linux/version.h:
 endif
 
 accel-pptp/stamp-h1: kernel_header $(if $(RTCONFIG_REALTEK), accel-pptp/linux/version.h, $(LINUX_INC_DIR)/$(INCLUDE_LINUX_VERSION_H))
-	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS) $(if $(RTCONFIG_MUSL_LIBC), -I$(TOP)/pppd/include) -idirafter $(KDIR)/include" \
+	# Ship files are Automake 1.9.6; host is 1.16 — freeze generated files.
+	cd accel-pptp && \
+	for aux in compile missing install-sh depcomp config.guess config.sub; do \
+		if [ ! -e "$$aux" ]; then \
+			libdir=`automake --print-libdir 2>/dev/null || true`; \
+			if [ -n "$$libdir" ] && [ -f "$$libdir/$$aux" ]; then cp -a "$$libdir/$$aux" "$$aux"; fi; \
+		fi; \
+	done && \
+	touch aclocal.m4 configure config.h.in Makefile.in src/Makefile.in && \
+	CFLAGS="-g -O2 $(EXTRACFLAGS) $(if $(RTCONFIG_MUSL_LIBC), -I$(TOP)/pppd/include) -idirafter $(KDIR)/include" \
+	AUTOMAKE=true ACLOCAL=true AUTOCONF=true AUTOHEADER=true \
 	$(CONFIGURE) --prefix=/usr --build=i686-linux KDIR=$(KDIR) PPPDIR=$(TOP)/pppd
 	touch $@
 
 accel-pptp: pppd accel-pptp/stamp-h1
-	@$(MAKE) -C accel-pptp
+	@$(MAKE) -C accel-pptp AUTOMAKE=true ACLOCAL=true AUTOCONF=true AUTOHEADER=true
 
 accel-pptp-clean:
 	-@$(MAKE) -C accel-pptp clean
