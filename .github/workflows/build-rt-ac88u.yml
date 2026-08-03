@@ -108,6 +108,7 @@ jobs:
             release/src-rt \
             release/src-rt-7.14.114.x \
             release/src
+          git config --local extensions.partialClone origin
           git fetch --depth=1 --filter=blob:none origin "$REF"
           git checkout --force FETCH_HEAD
           git rev-parse --short HEAD
@@ -143,6 +144,7 @@ jobs:
           git remote add origin "$REPO_URL"
           git sparse-checkout init --cone
           git sparse-checkout set brcm-arm-sdk
+          git config --local extensions.partialClone origin
           git fetch --depth=1 --filter=blob:none origin master
           git checkout --force FETCH_HEAD
           test -d brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3
