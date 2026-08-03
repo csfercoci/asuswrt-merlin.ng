@@ -21,19 +21,7 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Check out firmware sources
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Check out official Merlin toolchains
-        uses: actions/checkout@v4
-        with:
-          repository: RMerl/am-toolchains
-          path: am-toolchains
-          fetch-depth: 1
-
-      - name: Install legacy host dependencies
+      - name: Bootstrap container packages
         run: |
           dpkg --add-architecture i386
           apt-get update
@@ -46,8 +34,10 @@ jobs:
             bison \
             bzip2 \
             build-essential \
+            ca-certificates \
             cmake \
             cpio \
+            curl \
             device-tree-compiler \
             dos2unix \
             file \
@@ -83,6 +73,18 @@ jobs:
             xsltproc \
             zlib1g-dev
 
+      - name: Check out firmware sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check out official Merlin toolchains
+        uses: actions/checkout@v4
+        with:
+          repository: RMerl/am-toolchains
+          path: am-toolchains
+          fetch-depth: 1
+
       - name: Install Broadcom toolchain host libs
         env:
           AM_TOOLCHAINS_ROOT: ${{ github.workspace }}/am-toolchains
@@ -92,7 +94,6 @@ jobs:
           TC_LIB="$TC_ROOT/lib"
           DEST=/usr/lib/i386-linux-gnu
           mkdir -p "$DEST"
-          # GCC 4.5.3 cc1 is 32-bit and needs these SONAMEs from the SDK tree.
           for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10 libgmpxx.so.4; do
             src="$(readlink -f "$TC_LIB/$so" 2>/dev/null || true)"
             if [[ -z "$src" || ! -e "$src" ]]; then
@@ -107,14 +108,23 @@ jobs:
               echo "WARNING: missing $so under $TC_LIB" >&2
             fi
           done
-          # Also expose via ld.so cache for make/subshells that drop LD_LIBRARY_PATH.
+          # Hide broken host tools shipped inside the Broadcom bin dir.
+          for t in autoconf autoheader autom4te automake autoreconf aclocal libtool libtoolize; do
+            if [[ -e "$TC_ROOT/bin/$t" ]]; then
+              mv "$TC_ROOT/bin/$t" "$TC_ROOT/bin/$t.sdk-disabled"
+            fi
+          done
           echo "$DEST" > /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
           echo "$TC_LIB" >> /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
           ldconfig
           export LD_LIBRARY_PATH="$TC_LIB:$DEST${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          test -d "${{ github.workspace }}/.git"
+          git -C "${{ github.workspace }}" rev-parse --short HEAD
           file "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc"
           ldd "$TC_ROOT/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
           "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" --version
+          which autoreconf autoconf automake
+          autoreconf --version | head -n1
           echo 'int main(void){return 0;}' > /tmp/t.c
           "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" -c /tmp/t.c -o /tmp/t.o
           ls -la /tmp/t.o

@@ -25,26 +25,43 @@ if [[ ! -d "$toolchain_lib" ]]; then
   exit 1
 fi
 
-export PATH="$compiler_dir:$PATH"
-export LD_LIBRARY_PATH="$toolchain_lib:/usr/lib/i386-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+if [[ ! -d "$repo_root/.git" ]]; then
+  echo "Missing .git metadata under $repo_root (needed for versioning)." >&2
+  exit 1
+fi
 
-# make(1) often strips the environment for recipes; keep a sticky copy.
-export TOOLCHAIN_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
+# Prefer system host tools (autoreconf/autoconf/...) over broken SDK copies.
+export PATH="/usr/bin:/bin:$compiler_dir:$PATH"
+export LD_LIBRARY_PATH="$toolchain_lib:/usr/lib/i386-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export AUTOCONF="${AUTOCONF:-/usr/bin/autoconf}"
+export AUTOM4TE="${AUTOM4TE:-/usr/bin/autom4te}"
+export AUTOHEADER="${AUTOHEADER:-/usr/bin/autoheader}"
+export AUTOMAKE="${AUTOMAKE:-/usr/bin/automake}"
+export ACLOCAL="${ACLOCAL:-/usr/bin/aclocal}"
+export AUTORECONF="${AUTORECONF:-/usr/bin/autoreconf}"
 
 echo "Repository: $repo_root"
 echo "Build tree: $build_dir"
 echo "Toolchain: $compiler_dir"
 echo "Toolchain libs: $toolchain_lib"
+echo "Git HEAD: $(git -C "$repo_root" rev-parse --short HEAD)"
 echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 echo "Host: $(uname -a)"
 echo "Compiler: $(arm-brcm-linux-uclibcgnueabi-gcc --version | head -n 1)"
+echo "autoreconf: $(command -v autoreconf) ($(autoreconf --version | head -n1))"
 
 arm-brcm-linux-uclibcgnueabi-gcc --version
 ldd "$sdk_root/hndtools-arm-linux-2.6.36-uclibc-4.5.3/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
 
-# Ensure nested make/cc1 sees libs even if recipe env is cleaned.
 make -C "$build_dir" \
   LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
+  PATH="$PATH" \
+  AUTOCONF="$AUTOCONF" \
+  AUTOM4TE="$AUTOM4TE" \
+  AUTOHEADER="$AUTOHEADER" \
+  AUTOMAKE="$AUTOMAKE" \
+  ACLOCAL="$ACLOCAL" \
+  AUTORECONF="$AUTORECONF" \
   rt-ac88u
 
 image_dir="$build_dir/image"
