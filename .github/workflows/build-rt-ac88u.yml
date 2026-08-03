@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   firmware:
     runs-on: ubuntu-22.04
@@ -86,44 +90,40 @@ jobs:
           fetch-depth: 1
 
       - name: Install Broadcom toolchain host libs
-        env:
-          AM_TOOLCHAINS_ROOT: ${{ github.workspace }}/am-toolchains
         run: |
-          set -eux
-          TC_ROOT="$AM_TOOLCHAINS_ROOT/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3"
+          set -euxo pipefail
+          WS="$(pwd)"
+          TC_ROOT="$WS/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3"
           TC_LIB="$TC_ROOT/lib"
           DEST=/usr/lib/i386-linux-gnu
           mkdir -p "$DEST"
-          for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10 libgmpxx.so.4; do
-            src="$(readlink -f "$TC_LIB/$so" 2>/dev/null || true)"
-            if [[ -z "$src" || ! -e "$src" ]]; then
-              src="$(ls -1 "$TC_LIB"/${so}* 2>/dev/null | head -n1 || true)"
-            fi
-            if [[ -n "$src" && -e "$src" ]]; then
+          for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10; do
+            if [[ -e "$TC_LIB/$so" ]]; then
+              src="$(readlink -f "$TC_LIB/$so")"
               cp -a "$src" "$DEST/"
               base="$(basename "$src")"
               ln -sfn "$base" "$DEST/$so"
               echo "Installed $so -> $DEST/$base"
             else
-              echo "WARNING: missing $so under $TC_LIB" >&2
+              echo "ERROR: missing $so under $TC_LIB" >&2
+              ls -la "$TC_LIB" | head -n 50 >&2
+              exit 1
             fi
           done
-          # Hide broken host tools shipped inside the Broadcom bin dir.
           for t in autoconf autoheader autom4te automake autoreconf aclocal libtool libtoolize; do
             if [[ -e "$TC_ROOT/bin/$t" ]]; then
               mv "$TC_ROOT/bin/$t" "$TC_ROOT/bin/$t.sdk-disabled"
             fi
           done
-          echo "$DEST" > /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
-          echo "$TC_LIB" >> /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
+          printf '%s\n' "$DEST" "$TC_LIB" > /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
           ldconfig
           export LD_LIBRARY_PATH="$TC_LIB:$DEST${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-          test -d "${{ github.workspace }}/.git"
-          git -C "${{ github.workspace }}" rev-parse --short HEAD
+          test -d "$WS/.git"
+          git -C "$WS" rev-parse --short HEAD
           file "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc"
           ldd "$TC_ROOT/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
           "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" --version
-          which autoreconf autoconf automake
+          command -v autoreconf autoconf automake
           autoreconf --version | head -n1
           echo 'int main(void){return 0;}' > /tmp/t.c
           "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" -c /tmp/t.c -o /tmp/t.o
@@ -133,8 +133,10 @@ jobs:
       - name: Build firmware
         env:
           AM_TOOLCHAINS_ROOT: ${{ github.workspace }}/am-toolchains
-          LD_LIBRARY_PATH: ${{ github.workspace }}/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib:/usr/lib/i386-linux-gnu
-        run: bash tools/build-rt-ac88u-ci.sh
+        run: |
+          export AM_TOOLCHAINS_ROOT="$(pwd)/am-toolchains"
+          export LD_LIBRARY_PATH="$(pwd)/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib:/usr/lib/i386-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          bash tools/build-rt-ac88u-ci.sh
 
       - name: Upload firmware
         if: success()
