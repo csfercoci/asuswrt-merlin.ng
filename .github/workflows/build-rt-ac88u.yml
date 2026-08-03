@@ -1,0 +1,96 @@
+name: Build RT-AC88U 386
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 386-community-lts
+    paths:
+      - ".github/workflows/build-rt-ac88u.yml"
+      - "tools/build-rt-ac88u-ci.sh"
+      - "release/**"
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    runs-on: ubuntu-22.04
+    container:
+      image: ubuntu:20.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out firmware sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check out official Merlin toolchains
+        uses: actions/checkout@v4
+        with:
+          repository: RMerl/am-toolchains
+          path: am-toolchains
+          fetch-depth: 1
+
+      - name: Install legacy host dependencies
+        run: |
+          dpkg --add-architecture i386
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            autoconf \
+            automake \
+            autopoint \
+            autogen \
+            bison \
+            build-essential \
+            cmake \
+            device-tree-compiler \
+            dos2unix \
+            flex \
+            gawk \
+            gengetopt \
+            gettext \
+            gperf \
+            intltool \
+            libc6-i386 \
+            libc6-dev-i386 \
+            lib32stdc++6 \
+            lib32z1 \
+            libelf1:i386 \
+            libglib2.0-dev \
+            liblzo2-dev \
+            libncurses5-dev \
+            libtool \
+            libtool-bin \
+            libuuid1 \
+            m4 \
+            patch \
+            pkg-config \
+            python2 \
+            rsync \
+            shtool \
+            texinfo \
+            u-boot-tools \
+            uuid-dev \
+            xsltproc \
+            zlib1g-dev
+
+      - name: Verify toolchain and available space
+        run: |
+          df -h
+          file am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin/arm-brcm-linux-uclibcgnueabi-gcc
+
+      - name: Build firmware
+        env:
+          AM_TOOLCHAINS_ROOT: ${{ github.workspace }}/am-toolchains
+        run: bash tools/build-rt-ac88u-ci.sh
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rt-ac88u-386-community
+          path: release/src-rt-7.14.114.x/src/image/*.trx
+          if-no-files-found: error
+          retention-days: 14
