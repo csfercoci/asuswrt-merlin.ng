@@ -81,23 +81,60 @@ if [[ -n "$automake_libdir" && -d "$automake_libdir" ]]; then
 fi
 
 
-# Packages whose shipped aclocal.m4 is too old for host automake 1.16.
-# Freeze their generated files so make does not re-run automake/autoconf.
-# Do NOT stub AUTO* globally — libxml2/json-c/etc need real autoreconf.
-for pkg in sdparm-1.02 accel-pptp accel-pptpd/pptpd-1.3.3 pptpd; do
+# Packages with shipped Automake 1.9/1.10 aclocal that host 1.16 rejects if
+# make decides to regenerate. Freeze generated files + seed aux scripts.
+# Packages that already run "autoreconf -i -f" (libxml2, curl, wget, …) are OK.
+# Do NOT stub AUTO* globally — those need real host autotools.
+freeze_pkgs=(
+  sdparm-1.02
+  accel-pptp
+  accel-pptp/src
+  accel-pptpd/pptpd-1.3.3
+  accel-pptpd/pppd_plugin
+  accel-pptpd/pppd_plugin/src
+  pptpd
+  bridge
+  haveged
+  hotplug-e2-helper
+  json-c
+  pcre-8.31
+  phddns
+  libusb
+  libusb10
+  libupnp-1.3.1
+  libdaemon
+  libogg
+  libvorbis
+  libpng
+  libyaml
+  libffi-3.0.11
+  libgcrypt-1.5.1
+  libgpg-error-1.10
+  libiconv-1.14
+  lzo
+  lzo-2.10
+  lighttpd-1.4.39
+  ntfs-3g
+  openpam
+  netatalk-3.0.5
+  nfs-utils-1.3.4
+)
+automake_libdir="$(automake --print-libdir 2>/dev/null || true)"
+for pkg in "${freeze_pkgs[@]}"; do
   d="$repo_root/release/src/router/$pkg"
   [[ -d "$d" ]] || continue
-  for aux in compile missing install-sh depcomp config.guess config.sub; do
-    if [[ ! -e "$d/$aux" ]]; then
-      libdir="$(automake --print-libdir 2>/dev/null || true)"
-      if [[ -n "$libdir" && -f "$libdir/$aux" ]]; then
-        cp -a "$libdir/$aux" "$d/$aux"
+  if [[ -n "$automake_libdir" ]]; then
+    for aux in compile missing install-sh depcomp config.guess config.sub ar-lib test-driver; do
+      if [[ ! -e "$d/$aux" && -f "$automake_libdir/$aux" ]]; then
+        cp -a "$automake_libdir/$aux" "$d/$aux"
       fi
-    fi
-  done
-  for gen in aclocal.m4 configure config.h.in Makefile.in src/Makefile.in; do
-    [[ -f "$d/$gen" ]] && touch "$d/$gen"
-  done
+    done
+  fi
+  # Prefer shipped generated files over sources for make dependency checks.
+  find "$d" -maxdepth 2 -type f \( \
+      -name aclocal.m4 -o -name configure -o -name config.h.in \
+      -o -name Makefile.in -o -name 'stamp-h*' \
+    \) -exec touch {} +
 done
 make -C "$build_dir" \
   LD_LIBRARY_PATH="$toolchain_lib" \

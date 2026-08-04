@@ -69,11 +69,17 @@ jobs:
             libtool \
             libtool-bin \
             libltdl-dev \
+            libexpat1-dev \
+            libffi-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            libssl-dev \
             libuuid1 \
             m4 \
             patch \
             pkg-config \
             python2 \
+            python3 \
             rsync \
             shtool \
             texinfo \
