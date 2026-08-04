@@ -32,6 +32,8 @@ jobs:
       - name: Bootstrap container packages
         run: |
           set -euxo pipefail
+          # Source of truth: README.TXT Ubuntu 16.04 + amd64 32-bit lists.
+          # Drop obsolete g++-4.7 / libstdc++6-4.7-dev (gone on 20.04; g++ is enough).
           dpkg --add-architecture i386
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -39,59 +41,63 @@ jobs:
             automake \
             autopoint \
             autogen \
-            bc \
+            binutils-dev \
             bison \
-            bzip2 \
             build-essential \
-            ca-certificates \
             cmake \
-            cpio \
-            curl \
             device-tree-compiler \
+            docbook-xsl \
             dos2unix \
-            file \
             flex \
+            g++ \
             gawk \
             gengetopt \
             gettext \
             git \
             gperf \
+            gtk-doc-tools \
             intltool \
-            kmod \
+            libglib2.0-dev \
+            liblzo2-dev \
+            liblzma-dev \
+            libncurses5 \
+            libncurses5-dev \
+            libtool \
+            libtool-bin \
+            lzma \
+            m4 \
+            mtd-utils \
+            patch \
+            pkg-config \
+            python2 \
+            qemu-user \
+            sharutils \
+            shtool \
+            texinfo \
+            u-boot-tools \
+            uuid-dev \
+            xsltproc \
+            zlib1g-dev \
             libc6-i386 \
             libc6-dev-i386 \
             lib32stdc++6 \
             lib32z1 \
             libelf1:i386 \
-            libglib2.0-dev \
-            liblzo2-dev \
-            libncurses5-dev \
-            libtool \
-            libtool-bin \
-            libltdl-dev \
-            libexpat1-dev \
-            libffi-dev \
-            libreadline-dev \
-            libsqlite3-dev \
-            libssl-dev \
-            libuuid1 \
-            m4 \
-            patch \
-            pkg-config \
-            python2 \
-            python3 \
+            libncurses5:i386 \
+            ca-certificates \
+            file \
+            bc \
+            kmod \
             rsync \
-            shtool \
-            texinfo \
-            u-boot-tools \
-            uuid-dev \
-            wget \
-            xsltproc \
-            zlib1g-dev
+            libltdl-dev
+          # CI-only (not in README.TXT):
+          #   ca-certificates file bc kmod rsync — runner/workflow
+          #   libltdl-dev — Ubuntu splits ltdl.m4 from libtool; ipset needs it
           git --version
+          test -f /usr/share/aclocal/ltdl.m4
 
       # Container jobs: actions/checkout runs on host and often cannot see
-      # container git → falls back to REST zip of ENTIRE monorepo (multi-GB).
+      # container git ? falls back to REST zip of ENTIRE monorepo (multi-GB).
       # Sparse git clone inside container after bootstrap installs git.
       - name: Check out firmware sources
         env:
