@@ -68,6 +68,7 @@ jobs:
             libncurses5-dev \
             libtool \
             libtool-bin \
+            libltdl-dev \
             libuuid1 \
             m4 \
             patch \
