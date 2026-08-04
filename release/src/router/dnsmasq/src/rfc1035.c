@@ -520,10 +520,7 @@ static int find_soa(struct dns_header *header, size_t qlen, char *name, int *sub
 		    {
 		      len = to_wire(daemon->workspacename);
 		      if (!blockdata_expand(addr.rrblock.rrdata, addr.rrblock.datalen, daemon->workspacename, len))
-			{
-			  blockdata_free(addr.rrblock.rrdata);
-			  return 0;
-			}
+			return 0;
 
 		      addr.rrblock.datalen += len;
 		    }
@@ -538,10 +535,7 @@ static int find_soa(struct dns_header *header, size_t qlen, char *name, int *sub
 	      
 	      /* rest of RR */
 	      if (!no_cache && !blockdata_expand(addr.rrblock.rrdata, addr.rrblock.datalen, (char *)p, 20))
-		{
-		  blockdata_free(addr.rrblock.rrdata);
-		  return 0;
-		}
+		return 0;
 
 	      addr.rrblock.datalen += 20;
 	      
@@ -921,10 +915,7 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 			    {
 			      /* Copy the rest of the RR and end. */
 			      if (!blockdata_expand(addr.rrblock.rrdata, addr.rrblock.datalen, (char *)p1, endrr - p1))
-				{
-				  blockdata_free(addr.rrblock.rrdata);
-				  return 0;
-				}
+				return 0;
 			      addr.rrblock.datalen += endrr - p1;
 			    }
 			  else if (desc == 0)
@@ -940,10 +931,7 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 			      
 			      len = to_wire(name);
 			      if (!blockdata_expand(addr.rrblock.rrdata, addr.rrblock.datalen, name, len))
-				{
-				  blockdata_free(addr.rrblock.rrdata);
-				  return 0;
-				}
+				return 0;
 			      
 			      addr.rrblock.datalen += len;
 			    }
@@ -954,10 +942,7 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 				desc = endrr - p1;
 
 			      if (!blockdata_expand(addr.rrblock.rrdata, addr.rrblock.datalen, (char *)p1, desc))
-				{
-				  blockdata_free(addr.rrblock.rrdata);
-				  return 0;
-				}
+				return 0;
 
 			      addr.rrblock.datalen += desc;
 			      p1 += desc;
