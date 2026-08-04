@@ -80,24 +80,25 @@ if [[ -n "$automake_libdir" && -d "$automake_libdir" ]]; then
   done < <(find "$repo_root/release/src/router" -maxdepth 3 \( -name configure.ac -o -name configure.in \) -type f | sort)
 fi
 
-# Old GPL packages re-run host automake when timestamps drift. Stub AUTO* tools
-# so make rules that call $(AUTOMAKE)/$(AUTOCONF) become no-ops; configure
-# scripts already shipped in-tree are used as-is.
-stub_bin="$(mktemp -d)"
-for t in automake aclocal autoconf autoheader autoreconf autom4te; do
-  printf '%s\n' '#!/bin/sh' 'exit 0' > "$stub_bin/$t"
-  chmod +x "$stub_bin/$t"
+
+# Packages whose shipped aclocal.m4 is too old for host automake 1.16.
+# Freeze their generated files so make does not re-run automake/autoconf.
+# Do NOT stub AUTO* globally — libxml2/json-c/etc need real autoreconf.
+for pkg in sdparm-1.02 accel-pptp; do
+  d="$repo_root/release/src/router/$pkg"
+  [[ -d "$d" ]] || continue
+  for aux in compile missing install-sh depcomp config.guess config.sub; do
+    if [[ ! -e "$d/$aux" ]]; then
+      libdir="$(automake --print-libdir 2>/dev/null || true)"
+      if [[ -n "$libdir" && -f "$libdir/$aux" ]]; then
+        cp -a "$libdir/$aux" "$d/$aux"
+      fi
+    fi
+  done
+  for gen in aclocal.m4 configure config.h.in Makefile.in src/Makefile.in; do
+    [[ -f "$d/$gen" ]] && touch "$d/$gen"
+  done
 done
-export PATH="$stub_bin:/usr/bin:/bin:$compiler_dir"
-export AUTOMAKE="$stub_bin/automake"
-export ACLOCAL="$stub_bin/aclocal"
-export AUTOCONF="$stub_bin/autoconf"
-export AUTOHEADER="$stub_bin/autoheader"
-export AUTORECONF="$stub_bin/autoreconf"
-export AUTOM4TE="$stub_bin/autom4te"
-# Prefer shipped configure/Makefile.in over sources for all router packages.
-find "$repo_root/release/src/router" -type f \( -name Makefile.in -o -name configure -o -name aclocal.m4 -o -name config.h.in \) -print0 \
-  | xargs -0 -r touch -c
 make -C "$build_dir" \
   LD_LIBRARY_PATH="$toolchain_lib" \
   PATH="$PATH" \
