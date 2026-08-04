@@ -321,6 +321,7 @@ static int decode_int(bitstr_t *bs, const struct field_t *f,
 	case CONS:		/* 64K < Range < 4G */
 		len = get_bits(bs, 2) + 1;
 		BYTE_ALIGN(bs);
+		CHECK_BOUND(bs, len);
 		if (base && (f->attr & DECODE)) {	/* timeToLive */
 			unsigned int v = get_uint(bs, len) + f->lb;
 			PRINT(" = %u", v);
@@ -506,6 +507,9 @@ static int decode_seq(bitstr_t *bs, const struct field_t *f,
 	ext = (f->attr & EXT) ? get_bit(bs) : 0;
 
 	/* Get fields bitmap */
+	CHECK_BOUND(bs, (f->sz + 7) >> 3);
+	if (f->sz > 32)
+		return H323_ERROR_RANGE;
 	bmp = get_bitmap(bs, f->sz);
 	if (base)
 		*(unsigned int *)base = bmp;
@@ -557,6 +561,8 @@ static int decode_seq(bitstr_t *bs, const struct field_t *f,
 	/* Get the extension bitmap */
 	bmp2_len = get_bits(bs, 7) + 1;
 	CHECK_BOUND(bs, (bmp2_len + 7) >> 3);
+	if (bmp2_len > 32)
+		return H323_ERROR_RANGE;
 	bmp2 = get_bitmap(bs, bmp2_len);
 	bmp |= bmp2 >> f->sz;
 	if (base)
@@ -868,6 +874,8 @@ int DecodeQ931(unsigned char *buf, size_t sz, Q931 *q931)
 				break;
 			p++;
 			len--;
+			if (len <= 0)
+				break;
 			return DecodeH323_UserInformation(buf, p, len,
 							  &q931->UUIE);
 		}
