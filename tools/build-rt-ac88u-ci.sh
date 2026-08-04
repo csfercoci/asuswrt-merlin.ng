@@ -84,7 +84,7 @@ fi
 # Packages whose shipped aclocal.m4 is too old for host automake 1.16.
 # Freeze their generated files so make does not re-run automake/autoconf.
 # Do NOT stub AUTO* globally — libxml2/json-c/etc need real autoreconf.
-for pkg in sdparm-1.02 accel-pptp; do
+for pkg in sdparm-1.02 accel-pptp accel-pptpd/pptpd-1.3.3 pptpd; do
   d="$repo_root/release/src/router/$pkg"
   [[ -d "$d" ]] || continue
   for aux in compile missing install-sh depcomp config.guess config.sub; do

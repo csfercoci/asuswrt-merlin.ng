@@ -4319,10 +4319,20 @@ vlan-install:
 	$(STRIP) $(INSTALLDIR)/vlan/usr/sbin/vconfig
 
 accel-pptpd: kernel_header pppd accel-pptpd/pptpd-1.3.3/Makefile
-	@$(MAKE) -C accel-pptpd server
+	@$(MAKE) -C accel-pptpd server AUTOMAKE=true ACLOCAL=true AUTOCONF=true AUTOHEADER=true
 
 accel-pptpd/pptpd-1.3.3/Makefile:
-	( cd accel-pptpd/pptpd-1.3.3 && CFLAGS="$(CFLAGS) -g -O2 $(EXTRACFLAGS) -idirafter $(KDIR)/include" \
+	# Ship files are Automake 1.9.x; host is 1.16 — freeze generated files.
+	( cd accel-pptpd/pptpd-1.3.3 && \
+		for aux in compile missing install-sh depcomp config.guess config.sub; do \
+			if [ ! -e "$$aux" ]; then \
+				libdir=`automake --print-libdir 2>/dev/null || true`; \
+				if [ -n "$$libdir" ] && [ -f "$$libdir/$$aux" ]; then cp -a "$$libdir/$$aux" "$$aux"; fi; \
+			fi; \
+		done && \
+		touch aclocal.m4 configure config.h.in Makefile.in && \
+		CFLAGS="$(CFLAGS) -g -O2 $(EXTRACFLAGS) -idirafter $(KDIR)/include" \
+		AUTOMAKE=true ACLOCAL=true AUTOCONF=true AUTOHEADER=true \
 		$(CONFIGURE) --prefix=/usr --bindir=/usr/sbin --libdir=/usr/lib \
 			--enable-bcrelay KDIR=$(KDIR) PPPDIR=$(TOP)/pppd \
 	)
@@ -4335,7 +4345,16 @@ accel-pptpd-install: accel-pptpd
 	$(MAKE) -C accel-pptpd server_install
 
 pptpd/stamp-h1:
-	cd $(TOP)/pptpd && $(CONFIGURE) --prefix=/usr --enable-bcrelay CC=$(CC) STRIP=$(STRIP) AR=$(AR) LD=$(LD) NM=$(NM) RANLIB=$(RANLIB)
+	cd $(TOP)/pptpd && \
+	for aux in compile missing install-sh depcomp config.guess config.sub; do \
+		if [ ! -e "$$aux" ]; then \
+			libdir=`automake --print-libdir 2>/dev/null || true`; \
+			if [ -n "$$libdir" ] && [ -f "$$libdir/$$aux" ]; then cp -a "$$libdir/$$aux" "$$aux"; fi; \
+		fi; \
+	done && \
+	touch aclocal.m4 configure config.h.in Makefile.in 2>/dev/null || true && \
+	AUTOMAKE=true ACLOCAL=true AUTOCONF=true AUTOHEADER=true \
+	$(CONFIGURE) --prefix=/usr --enable-bcrelay CC=$(CC) STRIP=$(STRIP) AR=$(AR) LD=$(LD) NM=$(NM) RANLIB=$(RANLIB)
 	touch $@
 
 pptpd: pptpd/stamp-h1
