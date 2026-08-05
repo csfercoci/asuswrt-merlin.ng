@@ -480,7 +480,7 @@ static int find_soa(struct dns_header *header, size_t qlen, char *name, int *sub
   
   for (i = 0; i < ntohs(header->nscount); i++)
     {
-      if (!extract_name(header, qlen, &p, daemon->workspacename, 1, 0))
+      if (!extract_name(header, qlen, &p, daemon->workspacename, 1, 10))
 	return 0; /* bad packet */
       
       GETSHORT(qtype, p); 
