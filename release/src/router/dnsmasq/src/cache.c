@@ -2128,7 +2128,11 @@ void log_query(unsigned int flags, char *name, union all_addr *addr, char *arg, 
 	     dest = querystr(NULL, addr->rrdata.rrtype);
 	 }
        else if (flags & F_KEYTAG)
-	sprintf(daemon->addrbuff, arg, addr->log.keytag, addr->log.algo, addr->log.digest);
+	 {
+	   snprintf(daemon->addrbuff, ADDRSTRLEN, arg, addr->log.keytag, addr->log.algo, addr->log.digest);
+	   if (type)
+	     extra = " (not supported)";
+	 }
       else if (flags & F_RCODE)
 	{
 	  unsigned int rcode = addr->log.rcode;
