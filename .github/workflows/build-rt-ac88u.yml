@@ -1,0 +1,237 @@
+name: Build SDK7 386 firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 386-community-lts
+    paths:
+      - ".github/workflows/build-rt-ac88u.yml"
+      - "tools/build-rt-ac88u-ci.sh"
+      - "release/**"
+
+permissions:
+  contents: read
+  actions: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  AM_TOOLCHAINS_SHA: d1af80e6b668
+
+jobs:
+  firmware:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: rt-ac88u
+            artifact: rt-ac88u-386-community
+          - target: rt-ac3100
+            artifact: rt-ac3100-386-community
+          - target: rt-ac5300
+            artifact: rt-ac5300-386-community
+    runs-on: ubuntu-22.04
+    container:
+      image: ubuntu:20.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Bootstrap container packages
+        run: |
+          set -euxo pipefail
+          # Source of truth: README.TXT Ubuntu 16.04 + amd64 32-bit lists.
+          # Drop obsolete g++-4.7 / libstdc++6-4.7-dev (gone on 20.04; g++ is enough).
+          dpkg --add-architecture i386
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            autoconf \
+            automake \
+            autopoint \
+            autogen \
+            binutils-dev \
+            bison \
+            build-essential \
+            cmake \
+            device-tree-compiler \
+            docbook-xsl \
+            dos2unix \
+            flex \
+            g++ \
+            gawk \
+            gengetopt \
+            gettext \
+            git \
+            gperf \
+            gtk-doc-tools \
+            intltool \
+            libglib2.0-dev \
+            liblzo2-dev \
+            liblzma-dev \
+            libncurses5 \
+            libncurses5-dev \
+            libtool \
+            libtool-bin \
+            lzma \
+            m4 \
+            mtd-utils \
+            patch \
+            pkg-config \
+            python2 \
+            qemu-user \
+            sharutils \
+            shtool \
+            texinfo \
+            u-boot-tools \
+            uuid-dev \
+            xsltproc \
+            zlib1g-dev \
+            libc6-i386 \
+            libc6-dev-i386 \
+            lib32stdc++6 \
+            lib32z1 \
+            libelf1:i386 \
+            libncurses5:i386 \
+            ca-certificates \
+            file \
+            bc \
+            kmod \
+            rsync \
+            libltdl-dev
+          # CI-only (not in README.TXT):
+          #   ca-certificates file bc kmod rsync — runner/workflow
+          #   libltdl-dev — Ubuntu splits ltdl.m4 from libtool; ipset needs it
+          git --version
+          test -f /usr/share/aclocal/ltdl.m4
+
+      # Container jobs: actions/checkout runs on host and often cannot see
+      # container git ? falls back to REST zip of ENTIRE monorepo (multi-GB).
+      # Sparse git clone inside container after bootstrap installs git.
+      - name: Check out firmware sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          WS="${GITHUB_WORKSPACE:-$(pwd)}"
+          cd "$WS"
+          rm -rf .git release tools .github 2>/dev/null || true
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          REF="${GITHUB_SHA}"
+          git config --global --add safe.directory "$WS"
+          git config --global --add safe.directory "*"
+          git init
+          git config --local gc.auto 0
+          git remote add origin "$REPO_URL"
+          git sparse-checkout init --cone
+          git sparse-checkout set \
+            .github \
+            tools \
+            release/src-rt \
+            release/src-rt-6.x.4708 \
+            release/src-rt-7.14.114.x \
+            release/src
+          git config --local extensions.partialClone origin
+          git fetch --depth=1 --filter=blob:none origin "$REF"
+          git checkout --force FETCH_HEAD
+          git rev-parse --short HEAD
+          du -sh . release tools 2>/dev/null || true
+          test -f tools/build-rt-ac88u-ci.sh
+          test -d release/src-rt-7.14.114.x/src
+
+      - name: Restore am-toolchains cache
+        id: cache-toolchains
+        uses: actions/cache@v4
+        with:
+          path: am-toolchains
+          key: am-toolchains-brcm-arm-sdk-${{ env.AM_TOOLCHAINS_SHA }}
+          restore-keys: |
+            am-toolchains-brcm-arm-sdk-
+
+      - name: Check out official Merlin toolchains
+        if: steps.cache-toolchains.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          WS="${GITHUB_WORKSPACE:-$(pwd)}"
+          DEST="$WS/am-toolchains"
+          rm -rf "$DEST"
+          mkdir -p "$DEST"
+          cd "$DEST"
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/RMerl/am-toolchains.git"
+          git config --global --add safe.directory "$DEST"
+          git config --global --add safe.directory "*"
+          git init
+          git config --local gc.auto 0
+          git remote add origin "$REPO_URL"
+          git sparse-checkout init --cone
+          git sparse-checkout set brcm-arm-sdk
+          git config --local extensions.partialClone origin
+          git fetch --depth=1 --filter=blob:none origin master
+          git checkout --force FETCH_HEAD
+          test -d brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3
+          du -sh "$DEST" brcm-arm-sdk 2>/dev/null || true
+
+      - name: Install Broadcom toolchain host libs
+        run: |
+          set -euxo pipefail
+          WS="$(pwd)"
+          TC_ROOT="$WS/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3"
+          TC_LIB="$TC_ROOT/lib"
+          DEST=/usr/lib/i386-linux-gnu
+          test -d "$TC_ROOT"
+          mkdir -p "$DEST"
+          for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10; do
+            if [[ -e "$TC_LIB/$so" ]]; then
+              src="$(readlink -f "$TC_LIB/$so")"
+              cp -a "$src" "$DEST/"
+              base="$(basename "$src")"
+              ln -sfn "$base" "$DEST/$so"
+              echo "Installed $so -> $DEST/$base"
+            else
+              echo "ERROR: missing $so under $TC_LIB" >&2
+              ls -la "$TC_LIB" | head -n 50 >&2
+              exit 1
+            fi
+          done
+          for t in autoconf autoheader autom4te automake autoreconf aclocal libtool libtoolize; do
+            if [[ -e "$TC_ROOT/bin/$t" ]]; then
+              mv "$TC_ROOT/bin/$t" "$TC_ROOT/bin/$t.sdk-disabled"
+            fi
+          done
+          printf '%s\n' "$DEST" "$TC_LIB" > /etc/ld.so.conf.d/brcm-arm-sdk-i386.conf
+          ldconfig
+          export LD_LIBRARY_PATH="$TC_LIB"
+          test -d "$WS/.git"
+          git config --global --add safe.directory "$WS"
+          git -C "$WS" rev-parse --short HEAD
+          file "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc"
+          ldd "$TC_ROOT/libexec/gcc/arm-brcm-linux-uclibcgnueabi/4.5.3/cc1"
+          "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" --version
+          command -v autoreconf autoconf automake
+          autoreconf --version | head -n1
+          echo 'int main(void){return 0;}' > /tmp/t.c
+          "$TC_ROOT/bin/arm-brcm-linux-uclibcgnueabi-gcc" -c /tmp/t.c -o /tmp/t.o
+          ls -la /tmp/t.o
+          df -h
+          du -sh am-toolchains release 2>/dev/null || true
+
+      - name: Build firmware
+        env:
+          FIRMWARE_TARGET: ${{ matrix.target }}
+        run: |
+          export AM_TOOLCHAINS_ROOT="$(pwd)/am-toolchains"
+          export LD_LIBRARY_PATH="$(pwd)/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib"
+          git config --global --add safe.directory "$(pwd)"
+          bash tools/build-rt-ac88u-ci.sh
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/src-rt-7.14.114.x/src/image/*.trx
+          if-no-files-found: error
+          retention-days: 14
