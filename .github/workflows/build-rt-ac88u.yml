@@ -144,7 +144,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: am-toolchains
-          key: am-toolchains-brcm-arm-sdk-full-v2-full-v2-${{ env.AM_TOOLCHAINS_SHA }}
+          key: am-toolchains-brcm-arm-sdk-full-v2-${{ env.AM_TOOLCHAINS_SHA }}
           restore-keys: |
             am-toolchains-brcm-arm-sdk-full-v2-
 
