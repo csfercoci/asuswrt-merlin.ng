@@ -124,6 +124,7 @@ jobs:
           git init
           git config --local gc.auto 0
           git remote add origin "$REPO_URL"
+          git config --local extensions.partialClone origin
           git sparse-checkout init --cone
           git sparse-checkout set \
             .github \
