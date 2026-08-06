@@ -182,6 +182,10 @@ jobs:
           DEST=/usr/lib/i386-linux-gnu
           test -d "$TC_ROOT"
           test -f "$TC_ROOT/arm-brcm-linux-uclibcgnueabi/sysroot/usr/lib/libpthread.a"
+          # The SDK7 source link expects am-toolchains beside release/, not inside the workspace.
+          ln -sfn ../../am-toolchains/brcm-arm-sdk "$WS/release/src-rt-6.x.4708/toolchains"
+          test "$(readlink -f "$WS/release/src-rt-6.x.4708/toolchains")" = "$WS/am-toolchains/brcm-arm-sdk"
+          test -f "$WS/release/src-rt-7.14.114.x/src/toolchains/hndtools-arm-linux-2.6.36-uclibc-4.5.3/arm-brcm-linux-uclibcgnueabi/sysroot/usr/lib/libpthread.a"
           mkdir -p "$DEST"
           for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10; do
             if [[ -e "$TC_LIB/$so" ]]; then
