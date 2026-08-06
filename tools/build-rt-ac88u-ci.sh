@@ -4,9 +4,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-toolchain_root="${
-  AM_TOOLCHAINS_ROOT:-$(cd "$repo_root/.." && pwd)/am-toolchains
-}"
+toolchain_root="${AM_TOOLCHAINS_ROOT:-$(cd "$repo_root/.." && pwd)/am-toolchains}"
 
 sdk_root="$toolchain_root/brcm-arm-sdk"
 
