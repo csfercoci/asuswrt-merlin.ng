@@ -132,7 +132,6 @@ jobs:
             release/src-rt-6.x.4708 \
             release/src-rt-7.14.114.x \
             release/src
-          git config --local extensions.partialClone origin
           git fetch --depth=1 --filter=blob:none origin "$REF"
           git checkout --force FETCH_HEAD
           git rev-parse --short HEAD
@@ -145,9 +144,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: am-toolchains
-          key: am-toolchains-brcm-arm-sdk-${{ env.AM_TOOLCHAINS_SHA }}
+          key: am-toolchains-brcm-arm-sdk-full-v2-full-v2-${{ env.AM_TOOLCHAINS_SHA }}
           restore-keys: |
-            am-toolchains-brcm-arm-sdk-
+            am-toolchains-brcm-arm-sdk-full-v2-
 
       - name: Check out official Merlin toolchains
         if: steps.cache-toolchains.outputs.cache-hit != 'true'
@@ -168,8 +167,7 @@ jobs:
           git remote add origin "$REPO_URL"
           git sparse-checkout init --cone
           git sparse-checkout set brcm-arm-sdk
-          git config --local extensions.partialClone origin
-          git fetch --depth=1 --filter=blob:none origin master
+          git fetch --depth=1 origin master
           git checkout --force FETCH_HEAD
           test -d brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3
           du -sh "$DEST" brcm-arm-sdk 2>/dev/null || true
@@ -182,6 +180,7 @@ jobs:
           TC_LIB="$TC_ROOT/lib"
           DEST=/usr/lib/i386-linux-gnu
           test -d "$TC_ROOT"
+          test -f "$TC_ROOT/arm-brcm-linux-uclibcgnueabi/sysroot/usr/lib/libpthread.a"
           mkdir -p "$DEST"
           for so in libmpc.so.2 libmpfr.so.4 libgmp.so.10; do
             if [[ -e "$TC_LIB/$so" ]]; then
