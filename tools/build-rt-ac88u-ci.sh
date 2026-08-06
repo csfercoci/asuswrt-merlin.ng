@@ -10,6 +10,15 @@ sdk_root="$toolchain_root/brcm-arm-sdk"
 
 compiler_dir="$sdk_root/hndtools-arm-linux-2.6.36-uclibc-4.5.3/bin"
 toolchain_lib="$sdk_root/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib"
+firmware_target="${FIRMWARE_TARGET:-rt-ac88u}"
+
+case "$firmware_target" in
+  rt-ac88u|rt-ac3100|rt-ac5300) ;;
+  *)
+    echo "Unsupported SDK7 firmware target: $firmware_target" >&2
+    exit 2
+    ;;
+esac
 
 build_dir="$repo_root/release/src-rt-7.14.114.x/src"
 
@@ -45,6 +54,7 @@ export ACLOCAL="${ACLOCAL:-/usr/bin/aclocal}"
 export AUTORECONF="${AUTORECONF:-/usr/bin/autoreconf}"
 
 echo "Repository: $repo_root"
+echo "Build target: $firmware_target"
 echo "Build tree: $build_dir"
 echo "Toolchain: $compiler_dir"
 echo "Toolchain libs: $toolchain_lib"
@@ -145,7 +155,7 @@ make -C "$build_dir" \
   AUTOMAKE="$AUTOMAKE" \
   ACLOCAL="$ACLOCAL" \
   AUTORECONF="$AUTORECONF" \
-  rt-ac88u
+  "$firmware_target"
 
 image_dir="$build_dir/image"
 

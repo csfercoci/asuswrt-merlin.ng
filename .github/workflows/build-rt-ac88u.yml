@@ -1,4 +1,4 @@
-name: Build RT-AC88U 386
+name: Build SDK7 386 firmware
 
 on:
   workflow_dispatch:
@@ -23,6 +23,16 @@ env:
 
 jobs:
   firmware:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: rt-ac88u
+            artifact: rt-ac88u-386-community
+          - target: rt-ac3100
+            artifact: rt-ac3100-386-community
+          - target: rt-ac5300
+            artifact: rt-ac5300-386-community
     runs-on: ubuntu-22.04
     container:
       image: ubuntu:20.04
@@ -208,6 +218,8 @@ jobs:
           du -sh am-toolchains release 2>/dev/null || true
 
       - name: Build firmware
+        env:
+          FIRMWARE_TARGET: ${{ matrix.target }}
         run: |
           export AM_TOOLCHAINS_ROOT="$(pwd)/am-toolchains"
           export LD_LIBRARY_PATH="$(pwd)/am-toolchains/brcm-arm-sdk/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib"
@@ -218,7 +230,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: rt-ac88u-386-community
+          name: ${{ matrix.artifact }}
           path: release/src-rt-7.14.114.x/src/image/*.trx
           if-no-files-found: error
           retention-days: 14
