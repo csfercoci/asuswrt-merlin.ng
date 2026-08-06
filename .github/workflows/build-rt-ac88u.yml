@@ -33,7 +33,7 @@ jobs:
             artifact: rt-ac3100-386-community
           - target: rt-ac5300
             artifact: rt-ac5300-386-community
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, x64, proxmox]
     container:
       image: ubuntu:20.04
     timeout-minutes: 360
